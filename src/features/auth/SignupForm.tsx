@@ -68,7 +68,7 @@ export default function SignupForm({ onSuccess }: SignupFormProps) {
     try {
       const res = await signup({ username: form.username, password: form.password });
 
-      if (res.responseOutcome.success) {
+      if (res.responseOutcome === 'SUCCESS') {
         onSuccess();
         return;
       }
