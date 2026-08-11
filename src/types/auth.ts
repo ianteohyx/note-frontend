@@ -20,8 +20,18 @@ export interface SignupRequest {
   password: string;
 }
 
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
 export interface ApiResponse {
   responseOutcome: ResponseOutcome;
+}
+
+export interface LoginResponse extends ApiResponse {
+  token: string;
+  refreshToken: string;
 }
 
 export interface ErrorResponse extends ApiResponse {
