@@ -28,6 +28,5 @@ UI design/
 *.njsproj
 *.sln
 *.sw?
-
-# UI design
-/UI design/
+.mcp.json
+*CLAUDE.md
