@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import LoginForm from '../features/auth/LoginForm';
+import { useAuth } from '../hooks/useAuth';
 
 const pageClass = 'min-h-screen flex items-center justify-center p-6 bg-[#1a1525]';
 const cardClass =
@@ -8,24 +10,12 @@ const linkClass =
   'text-[#c8a96e] font-medium no-underline transition-colors hover:text-[#d9bc82] hover:underline';
 
 export default function LoginPage() {
-  const [loggedInAs, setLoggedInAs] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-  if (loggedInAs) {
-    return (
-      <div className={pageClass}>
-        <div className={`${cardClass} text-center`}>
-          <div
-            className="w-14 h-14 rounded-full bg-[#c8a96e]/15 border-2 border-[#c8a96e] flex items-center justify-center text-2xl text-[#c8a96e] mx-auto mb-5"
-            aria-hidden="true"
-          >
-            ✓
-          </div>
-          <h1 className="text-2xl font-semibold text-[#f0eaf8] m-0 mb-1.5">Welcome back, {loggedInAs}!</h1>
-          <p className="text-[0.9rem] text-[#f0eaf8]/55 m-0">You're signed in.</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isAuthenticated) navigate('/notes', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   return (
     <div className={pageClass}>
@@ -36,7 +26,7 @@ export default function LoginPage() {
           <p className="text-[0.9rem] text-[#f0eaf8]/55 m-0">Welcome back to your notes</p>
         </div>
 
-        <LoginForm onSuccess={setLoggedInAs} />
+        <LoginForm onSuccess={() => navigate('/notes', { replace: true })} />
 
         <p className="text-center text-sm text-[#f0eaf8]/50 mt-6 mb-0">
           Don't have an account?{' '}
