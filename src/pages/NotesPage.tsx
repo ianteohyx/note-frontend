@@ -52,15 +52,15 @@ export default function NotesPage() {
             disabled={creating}
             aria-label="Create new note"
             title="New note"
-            className="flex items-center justify-center w-8 h-8 rounded-full border border-[#c8a96e]/40 text-[#c8a96e] cursor-pointer transition-colors duration-150 hover:bg-[#c8a96e]/12 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center text-[#c8a96e] cursor-pointer transition-colors duration-150 hover:text-[#d9bc82] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating ? (
               <span
-                className="inline-block w-4 h-4 border-2 border-[#c8a96e]/30 border-t-[#c8a96e] rounded-full animate-spin"
+                className="inline-block w-5 h-5 border-2 border-[#c8a96e]/30 border-t-[#c8a96e] rounded-full animate-spin"
                 aria-hidden="true"
               />
             ) : (
-              <NewNoteIcon className="w-4 h-4" />
+              <NewNoteIcon className="w-5 h-5" />
             )}
           </button>
         </div>
