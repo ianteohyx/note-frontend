@@ -20,3 +20,8 @@ export interface GetAllNoteResponse extends ApiResponse {
 export interface GetSingleNoteResponse extends ApiResponse {
   noteDto: NoteDto;
 }
+
+export interface AddNoteRequest {
+  noteTitle: string;
+  noteContent: string;
+}

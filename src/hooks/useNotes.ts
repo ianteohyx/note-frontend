@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getAllNotes } from '../api/notes';
+import { createNote, getAllNotes } from '../api/notes';
 import { useAuth } from './useAuth';
 import type { NoteDto, GetAllNoteResponse } from '../types/notes';
 import type { ErrorResponse } from '../types/auth';
 
 const PAGE_SIZE = 20;
+const NEW_NOTE_TITLE = 'New Note';
 
 interface UseNotesResult {
   notes: NoteDto[];
@@ -13,6 +14,9 @@ interface UseNotesResult {
   error: string | null;
   hasMore: boolean;
   loadMore: () => void;
+  addNote: () => Promise<NoteDto | null>;
+  creating: boolean;
+  createError: string | null;
 }
 
 export function useNotes(): UseNotesResult {
@@ -59,5 +63,49 @@ export function useNotes(): UseNotesResult {
     if (page + 1 < totalPages) fetchPage(page + 1, true);
   }, [fetchPage, page, totalPages]);
 
-  return { notes, loading, loadingMore, error, hasMore: page + 1 < totalPages, loadMore };
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const addNote = useCallback(async (): Promise<NoteDto | null> => {
+    if (!token) return null;
+    setCreating(true);
+    setCreateError(null);
+
+    try {
+      const createRes = await createNote({ noteTitle: NEW_NOTE_TITLE, noteContent: '' }, token);
+      if (createRes.responseOutcome !== 'SUCCESS') {
+        setCreateError((createRes as ErrorResponse).message ?? 'Failed to create note.');
+        return null;
+      }
+
+      // Create response carries no note data, so fetch the note back — it is
+      // guaranteed to sort first since the list is ordered by dateModified desc.
+      const listRes = await getAllNotes(token, 0, 1);
+      if (listRes.responseOutcome !== 'SUCCESS') {
+        setCreateError((listRes as ErrorResponse).message ?? 'Note created, but failed to load it.');
+        return null;
+      }
+
+      const newNote = (listRes as GetAllNoteResponse).notes[0] ?? null;
+      if (newNote) setNotes(prev => [newNote, ...prev]);
+      return newNote;
+    } catch {
+      setCreateError('Network error. Please check your connection and try again.');
+      return null;
+    } finally {
+      setCreating(false);
+    }
+  }, [token]);
+
+  return {
+    notes,
+    loading,
+    loadingMore,
+    error,
+    hasMore: page + 1 < totalPages,
+    loadMore,
+    addNote,
+    creating,
+    createError,
+  };
 }
