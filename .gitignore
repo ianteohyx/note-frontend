@@ -18,6 +18,9 @@ dist-ssr
 # UI design files
 UI design/
 
+# Playwright MCP output
+.playwright-mcp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

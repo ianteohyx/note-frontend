@@ -25,3 +25,8 @@ export interface AddNoteRequest {
   noteTitle: string;
   noteContent: string;
 }
+
+export interface UpdateNoteRequest {
+  noteTitle: string;
+  noteContent: string;
+}
