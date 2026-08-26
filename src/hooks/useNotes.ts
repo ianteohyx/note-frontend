@@ -17,6 +17,7 @@ interface UseNotesResult {
   addNote: () => Promise<NoteDto | null>;
   creating: boolean;
   createError: string | null;
+  patchNoteInList: (id: number, patch: Partial<Pick<NoteDto, 'title' | 'dateModified'>>) => void;
 }
 
 export function useNotes(): UseNotesResult {
@@ -97,6 +98,19 @@ export function useNotes(): UseNotesResult {
     }
   }, [token]);
 
+  const patchNoteInList = useCallback(
+    (id: number, patch: Partial<Pick<NoteDto, 'title' | 'dateModified'>>) => {
+      setNotes(prev => {
+        const idx = prev.findIndex(n => n.id === id);
+        if (idx === -1) return prev;
+        const updated = { ...prev[idx], ...patch };
+        // Mirror the backend's dateModified-desc sort so the edited note bubbles to the top.
+        return [updated, ...prev.filter(n => n.id !== id)];
+      });
+    },
+    [],
+  );
+
   return {
     notes,
     loading,
@@ -107,5 +121,6 @@ export function useNotes(): UseNotesResult {
     addNote,
     creating,
     createError,
+    patchNoteInList,
   };
 }

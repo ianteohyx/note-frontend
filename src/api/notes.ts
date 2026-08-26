@@ -1,6 +1,11 @@
 import { request } from './client';
 import type { ApiResponse, ErrorResponse } from '../types/auth';
-import type { AddNoteRequest, GetAllNoteResponse, GetSingleNoteResponse } from '../types/notes';
+import type {
+  AddNoteRequest,
+  GetAllNoteResponse,
+  GetSingleNoteResponse,
+  UpdateNoteRequest,
+} from '../types/notes';
 
 export function getAllNotes(
   token: string,
@@ -24,4 +29,12 @@ export function createNote(
   token: string,
 ): Promise<ApiResponse | ErrorResponse> {
   return request<ApiResponse | ErrorResponse>('POST', '/api/notes', body, token);
+}
+
+export function updateNote(
+  id: number,
+  body: UpdateNoteRequest,
+  token: string,
+): Promise<ApiResponse | ErrorResponse> {
+  return request<ApiResponse | ErrorResponse>('PATCH', `/api/notes/${id}`, body, token);
 }
