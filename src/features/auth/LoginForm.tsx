@@ -60,8 +60,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       const res = await login({ username: form.username, password: form.password });
 
       if (res.responseOutcome === 'SUCCESS') {
-        const { token, refreshToken } = res as LoginResponse;
-        setSession(form.username, token, refreshToken);
+        const { token } = res as LoginResponse;
+        setSession(token);
         onSuccess(form.username);
         return;
       }

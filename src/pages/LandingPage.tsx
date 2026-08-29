@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import FullScreenLoader from '../components/FullScreenLoader';
 
 const GithubIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -78,12 +79,16 @@ const buttonBase =
   'inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition-colors';
 
 export default function LandingPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initializing } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (isAuthenticated) navigate('/notes', { replace: true });
   }, [isAuthenticated, navigate]);
+
+  // Hold the marketing page until the startup silent refresh resolves, so a
+  // signed-in user reloading on "/" goes straight to their notes without a flash.
+  if (initializing) return <FullScreenLoader />;
 
   return (
     <div className="min-h-screen bg-[#1a1525] text-[#f0eaf8]">
