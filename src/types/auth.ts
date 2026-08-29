@@ -31,7 +31,8 @@ export interface ApiResponse {
 
 export interface LoginResponse extends ApiResponse {
   token: string;
-  refreshToken: string;
+  // The refresh token is delivered only as an HttpOnly `refreshToken` cookie
+  // (set by the backend on login/refresh) — it is never in the response body.
 }
 
 export interface ErrorResponse extends ApiResponse {

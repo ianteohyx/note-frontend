@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LoginForm from '../features/auth/LoginForm';
+import FullScreenLoader from '../components/FullScreenLoader';
 import { useAuth } from '../hooks/useAuth';
 
 const pageClass = 'min-h-screen flex items-center justify-center p-6 bg-[#1a1525]';
@@ -10,12 +11,16 @@ const linkClass =
   'text-[#c8a96e] font-medium no-underline transition-colors hover:text-[#d9bc82] hover:underline';
 
 export default function LoginPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, initializing } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (isAuthenticated) navigate('/notes', { replace: true });
   }, [isAuthenticated, navigate]);
+
+  // Wait for the startup silent refresh before showing the form — avoids a
+  // flash of the login page when the user is actually still signed in.
+  if (initializing) return <FullScreenLoader />;
 
   return (
     <div className={pageClass}>

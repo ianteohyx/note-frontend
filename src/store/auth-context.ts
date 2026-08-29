@@ -4,7 +4,9 @@ export interface AuthContextValue {
   token: string | null;
   username: string | null;
   isAuthenticated: boolean;
-  login: (username: string, token: string, refreshToken: string) => void;
+  /** True while the app-start silent refresh is in flight — routes should wait, not redirect. */
+  initializing: boolean;
+  login: (token: string) => void;
   logout: () => void;
 }
 
