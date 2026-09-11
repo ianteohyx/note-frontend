@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createNote, getAllNotes } from '../api/notes';
+import { createNote, deleteNote as deleteNoteApi, getAllNotes } from '../api/notes';
 import { useAuth } from './useAuth';
 import type { NoteDto, GetAllNoteResponse } from '../types/notes';
 import type { ErrorResponse } from '../types/auth';
@@ -17,6 +17,7 @@ interface UseNotesResult {
   addNote: () => Promise<NoteDto | null>;
   creating: boolean;
   createError: string | null;
+  deleteNote: (id: number) => Promise<{ ok: boolean; error?: string }>;
   patchNoteInList: (id: number, patch: Partial<Pick<NoteDto, 'title' | 'dateModified'>>) => void;
 }
 
@@ -98,6 +99,24 @@ export function useNotes(): UseNotesResult {
     }
   }, [token]);
 
+  const deleteNote = useCallback(
+    async (id: number): Promise<{ ok: boolean; error?: string }> => {
+      if (!token) return { ok: false, error: 'Your session has expired. Please log in again.' };
+
+      try {
+        const res = await deleteNoteApi(id, token);
+        if (res.responseOutcome === 'SUCCESS') {
+          setNotes(prev => prev.filter(n => n.id !== id));
+          return { ok: true };
+        }
+        return { ok: false, error: (res as ErrorResponse).message ?? 'Failed to delete note.' };
+      } catch {
+        return { ok: false, error: 'Network error. Please check your connection and try again.' };
+      }
+    },
+    [token],
+  );
+
   const patchNoteInList = useCallback(
     (id: number, patch: Partial<Pick<NoteDto, 'title' | 'dateModified'>>) => {
       setNotes(prev => {
@@ -121,6 +140,7 @@ export function useNotes(): UseNotesResult {
     addNote,
     creating,
     createError,
+    deleteNote,
     patchNoteInList,
   };
 }

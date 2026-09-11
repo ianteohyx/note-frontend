@@ -40,7 +40,11 @@ export function useNote(noteId: number | null): UseNoteResult {
   }, []);
 
   useEffect(() => {
-    if (noteId === null || !token) return;
+    if (noteId === null || !token) {
+      setNote(null);
+      setError(null);
+      return;
+    }
 
     let cancelled = false;
     fetchNote(noteId, token, () => cancelled);

@@ -39,6 +39,7 @@ export default function NotesPage() {
     addNote,
     creating,
     createError,
+    deleteNote,
     patchNoteInList,
   } = useNotes();
   const { note, loading: noteLoading, error: noteError } = useNote(selectedNoteId);
@@ -68,6 +69,16 @@ export default function NotesPage() {
   async function handleCreateNote() {
     const newNote = await addNote();
     if (newNote) setSelectedNoteId(newNote.id);
+  }
+
+  async function handleDeleteNote(id: number) {
+    const result = await deleteNote(id);
+    if (result.ok && id === selectedNoteId) {
+      // Selection follows the issue spec: jump to the first note of the updated list.
+      const remaining = notes.filter(n => n.id !== id);
+      setSelectedNoteId(remaining[0]?.id ?? null);
+    }
+    return result;
   }
 
   return (
@@ -179,6 +190,7 @@ export default function NotesPage() {
             selectedId={selectedNoteId}
             onSelect={setSelectedNoteId}
             onLoadMore={loadMore}
+            onDeleteNote={handleDeleteNote}
           />
         </section>
 

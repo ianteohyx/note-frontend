@@ -38,3 +38,7 @@ export function updateNote(
 ): Promise<ApiResponse | ErrorResponse> {
   return request<ApiResponse | ErrorResponse>('PATCH', `/api/notes/${id}`, body, token);
 }
+
+export function deleteNote(id: number, token: string): Promise<ApiResponse | ErrorResponse> {
+  return request<ApiResponse | ErrorResponse>('DELETE', `/api/notes/${id}`, undefined, token);
+}
