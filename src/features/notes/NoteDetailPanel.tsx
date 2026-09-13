@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { EditorContent, type Editor } from '@tiptap/react';
 import { formatDate } from '../../utils/date';
+import { CheckIcon } from '../../components/icons';
+import ShareNoteButton from './ShareNoteButton';
 import type { NoteDto } from '../../types/notes';
 
 const SAVED_TOAST_DURATION_MS = 2000;
@@ -19,21 +21,6 @@ interface NoteDetailPanelProps {
   saveError: string | null;
   lastSavedAt: string | null;
 }
-
-const CheckIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
-    <path d="M20 6 9 17l-5-5" />
-  </svg>
-);
 
 export default function NoteDetailPanel({
   note,
@@ -125,9 +112,11 @@ export default function NoteDetailPanel({
         <EditorContent editor={editor} className="tiptap-editor text-[#f0eaf8]/90" />
       </div>
 
+      <ShareNoteButton noteId={note.id} />
+
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm shadow-lg shadow-black/30 animate-[toast-in_0.2s_ease] ${
+          className={`fixed bottom-6 left-6 z-50 flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm shadow-lg shadow-black/30 animate-[toast-in_0.2s_ease] ${
             toast === 'Saved'
               ? 'border-[#6fcf97]/50 bg-[#6fcf97]/10 text-[#6fcf97]'
               : 'border-white/10 bg-[#241c33] text-[#f0eaf8]'
