@@ -3,6 +3,7 @@ import { EditorContent, type Editor } from '@tiptap/react';
 import { formatDate } from '../../utils/date';
 import { CheckIcon } from '../../components/icons';
 import ShareNoteButton from './ShareNoteButton';
+import SharedUsersButton from './SharedUsersButton';
 import type { NoteDto } from '../../types/notes';
 
 const SAVED_TOAST_DURATION_MS = 2000;
@@ -98,6 +99,8 @@ export default function NoteDetailPanel({
         By {note.authorName} · Created {formatDate(note.dateCreated)}
         {lastSavedAt && lastSavedAt !== note.dateCreated && ` · Edited ${formatDate(lastSavedAt)}`}
       </p>
+
+      <SharedUsersButton noteId={note.id} />
 
       {saveError && (
         <p
