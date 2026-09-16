@@ -1,6 +1,10 @@
 import { request } from './client';
 import type { ApiResponse, ErrorResponse } from '../types/auth';
-import type { GetSharedUsersResponse, ShareNoteRequest } from '../types/shares';
+import type {
+  GetSharedUsersResponse,
+  ShareNoteRequest,
+  UpdateSharePermissionRequest,
+} from '../types/shares';
 
 export function shareNote(body: ShareNoteRequest, token: string): Promise<ApiResponse | ErrorResponse> {
   return request<ApiResponse | ErrorResponse>('POST', '/api/shares', body, token);
@@ -16,4 +20,11 @@ export function getSharedUsers(
     undefined,
     token,
   );
+}
+
+export function updateSharePermissions(
+  body: UpdateSharePermissionRequest,
+  token: string,
+): Promise<ApiResponse | ErrorResponse> {
+  return request<ApiResponse | ErrorResponse>('PATCH', '/api/shares/permissions', body, token);
 }

@@ -16,3 +16,13 @@ export interface SharedUserDto {
 export interface GetSharedUsersResponse extends ApiResponse {
   sharedUsers: SharedUserDto[];
 }
+
+export interface UpdateSharePermissionItem {
+  noteId: number;
+  sharedToUsername: string;
+  permission: Permission;
+}
+
+export interface UpdateSharePermissionRequest {
+  updates: UpdateSharePermissionItem[];
+}
