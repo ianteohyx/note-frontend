@@ -6,9 +6,11 @@ import { Markdown } from 'tiptap-markdown';
 import type { MarkdownStorage } from 'tiptap-markdown';
 import type { Editor } from '@tiptap/core';
 import { updateNote } from '../api/notes';
+import { updateSharedNote } from '../api/shares';
 import { useAuth } from './useAuth';
 import type { ErrorResponse } from '../types/auth';
-import type { NoteDto } from '../types/notes';
+import type { NoteDto, SelectedNoteRef } from '../types/notes';
+import type { Permission } from '../types/shares';
 
 const AUTOSAVE_DELAY_MS = 1000;
 
@@ -25,6 +27,7 @@ function splitMarkdown(markdown: string): { title: string; content: string } {
 }
 
 interface PendingSave {
+  target: SelectedNoteRef;
   noteId: number;
   title: string;
   content: string;
@@ -38,8 +41,10 @@ interface UseAutosaveNoteResult {
 }
 
 export function useAutosaveNote(
+  selected: SelectedNoteRef | null,
   note: NoteDto | null,
-  onSaved: (id: number, patch: { title: string; dateModified: string }) => void,
+  permission: Permission | null,
+  onSaved: (target: SelectedNoteRef, noteId: number, patch: { title: string; dateModified: string }) => void,
 ): UseAutosaveNoteResult {
   const { token } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -64,15 +69,18 @@ export function useAutosaveNote(
     setSaveError(null);
 
     try {
-      const res = await updateNote(
-        pending.noteId,
-        { noteTitle: pending.title, noteContent: pending.content },
-        token,
-      );
+      const res =
+        pending.target.kind === 'own'
+          ? await updateNote(pending.target.id, { noteTitle: pending.title, noteContent: pending.content }, token)
+          : await updateSharedNote(
+              pending.target.id,
+              { updatedShareNoteTitle: pending.title, updatedShareNoteContent: pending.content },
+              token,
+            );
       if (res.responseOutcome === 'SUCCESS') {
         const dateModified = new Date().toISOString();
         setLastSavedAt(dateModified);
-        onSavedRef.current(pending.noteId, { title: pending.title, dateModified });
+        onSavedRef.current(pending.target, pending.noteId, { title: pending.title, dateModified });
       } else {
         setSaveError((res as ErrorResponse).message ?? 'Failed to save note.');
       }
@@ -82,6 +90,8 @@ export function useAutosaveNote(
       setSaving(false);
     }
   }, [token]);
+
+  const editable = note !== null && permission === 'WRITE';
 
   const editor = useEditor(
     {
@@ -103,13 +113,13 @@ export function useAutosaveNote(
         }),
       ],
       content: note ? buildMarkdown(note.title, note.content) : '',
-      editable: note !== null,
+      editable,
       immediatelyRender: false,
       onUpdate: ({ editor: e }) => {
-        if (!note) return;
+        if (!note || !selected) return;
         const markdown = (e.storage as unknown as { markdown: MarkdownStorage }).markdown.getMarkdown();
         const { title, content } = splitMarkdown(markdown);
-        pendingRef.current = { noteId: note.id, title, content };
+        pendingRef.current = { target: selected, noteId: note.id, title, content };
 
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
@@ -117,7 +127,7 @@ export function useAutosaveNote(
         }, AUTOSAVE_DELAY_MS);
       },
     },
-    [note?.id],
+    [note?.id, editable],
   );
 
   useEffect(() => {

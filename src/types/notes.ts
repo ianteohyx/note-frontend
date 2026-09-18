@@ -30,3 +30,16 @@ export interface UpdateNoteRequest {
   noteTitle: string;
   noteContent: string;
 }
+
+export type NoteFilter = 'MY' | 'SHARED' | 'ALL';
+
+/** A note or shared-note as it appears in the list — `id` is the note id for
+ * an owned note, or the *shared-note record's* id for a shared one (the id
+ * `GET/PATCH /api/shares/{id}` expects, distinct from the underlying note id). */
+export interface NoteListItem {
+  id: number;
+  kind: 'own' | 'shared';
+  note: NoteDto;
+}
+
+export type SelectedNoteRef = Pick<NoteListItem, 'id' | 'kind'>;

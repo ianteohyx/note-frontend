@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NoteListPanel from '../features/notes/NoteListPanel';
 import NoteDetailPanel from '../features/notes/NoteDetailPanel';
 import ToolbarButton from '../components/ToolbarButton';
 import { useNotes } from '../hooks/useNotes';
+import { useReceivedShares } from '../hooks/useReceivedShares';
 import { useNote } from '../hooks/useNote';
 import { useAutosaveNote } from '../hooks/useAutosaveNote';
 import { useAuth } from '../hooks/useAuth';
+import type { NoteFilter, NoteListItem, SelectedNoteRef } from '../types/notes';
 
 const AddNoteIcon = ({ className }: { className?: string }) => (
   <svg
@@ -27,7 +29,8 @@ const AddNoteIcon = ({ className }: { className?: string }) => (
 export default function NotesPage() {
   const { username, logout } = useAuth();
   const navigate = useNavigate();
-  const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<NoteFilter>('MY');
+  const [selected, setSelected] = useState<SelectedNoteRef | null>(null);
 
   const {
     notes,
@@ -42,10 +45,52 @@ export default function NotesPage() {
     deleteNote,
     patchNoteInList,
   } = useNotes();
-  const { note, loading: noteLoading, error: noteError } = useNote(selectedNoteId);
+  const {
+    sharedNotes,
+    loading: sharedLoading,
+    loadingMore: sharedLoadingMore,
+    error: sharedError,
+    hasMore: sharedHasMore,
+    loadMore: sharedLoadMore,
+    patchSharedNoteInList,
+  } = useReceivedShares();
+
+  const ownItems = useMemo<NoteListItem[]>(
+    () => notes.map(note => ({ id: note.id, kind: 'own' as const, note })),
+    [notes],
+  );
+  const sharedItems = useMemo<NoteListItem[]>(
+    () => sharedNotes.map(sn => ({ id: sn.id, kind: 'shared' as const, note: sn.note })),
+    [sharedNotes],
+  );
+  const visibleItems = useMemo<NoteListItem[]>(() => {
+    if (filter === 'MY') return ownItems;
+    if (filter === 'SHARED') return sharedItems;
+    return [...ownItems, ...sharedItems].sort(
+      (a, b) => new Date(b.note.dateModified).getTime() - new Date(a.note.dateModified).getTime(),
+    );
+  }, [filter, ownItems, sharedItems]);
+
+  const listLoading = filter === 'SHARED' ? sharedLoading : filter === 'ALL' ? loading || sharedLoading : loading;
+  const listLoadingMore =
+    filter === 'SHARED' ? sharedLoadingMore : filter === 'ALL' ? loadingMore || sharedLoadingMore : loadingMore;
+  const listError = filter === 'SHARED' ? sharedError : filter === 'ALL' ? (error ?? sharedError) : error;
+  const listHasMore = filter === 'SHARED' ? sharedHasMore : filter === 'ALL' ? hasMore || sharedHasMore : hasMore;
+
+  function handleLoadMore() {
+    if (filter !== 'SHARED') loadMore();
+    if (filter !== 'MY') sharedLoadMore();
+  }
+
+  const { note, permission, loading: noteLoading, error: noteError } = useNote(selected);
   // Lifted up (rather than owned by NoteDetailPanel) so the formatting toolbar in the
   // header can read and drive the same editor instance the detail panel renders.
-  const { editor, saving, saveError, lastSavedAt } = useAutosaveNote(note, patchNoteInList);
+  const { editor, saving, saveError, lastSavedAt } = useAutosaveNote(selected, note, permission, handleNoteSaved);
+
+  function handleNoteSaved(target: SelectedNoteRef, noteId: number, patch: { title: string; dateModified: string }) {
+    if (target.kind === 'own') patchNoteInList(noteId, patch);
+    else patchSharedNoteInList(noteId, patch);
+  }
 
   // Auto-select the first note once, right after the initial list load finishes,
   // so the detail panel isn't left on the "no note selected" empty state after login.
@@ -56,8 +101,8 @@ export default function NotesPage() {
   const [hasAutoSelected, setHasAutoSelected] = useState(false);
   if (!hasAutoSelected && !loading) {
     setHasAutoSelected(true);
-    if (selectedNoteId === null && notes.length > 0) {
-      setSelectedNoteId(notes[0].id);
+    if (selected === null && notes.length > 0) {
+      setSelected({ id: notes[0].id, kind: 'own' });
     }
   }
 
@@ -68,15 +113,15 @@ export default function NotesPage() {
 
   async function handleCreateNote() {
     const newNote = await addNote();
-    if (newNote) setSelectedNoteId(newNote.id);
+    if (newNote) setSelected({ id: newNote.id, kind: 'own' });
   }
 
   async function handleDeleteNote(id: number) {
     const result = await deleteNote(id);
-    if (result.ok && id === selectedNoteId) {
-      // Selection follows the issue spec: jump to the first note of the updated list.
-      const remaining = notes.filter(n => n.id !== id);
-      setSelectedNoteId(remaining[0]?.id ?? null);
+    if (result.ok && selected?.kind === 'own' && selected.id === id) {
+      // Selection follows the issue spec: jump to the first note of the updated, currently visible list.
+      const remaining = visibleItems.filter(item => !(item.kind === 'own' && item.note.id === id));
+      setSelected(remaining[0] ? { id: remaining[0].id, kind: remaining[0].kind } : null);
     }
     return result;
   }
@@ -107,7 +152,7 @@ export default function NotesPage() {
             </button>
           </div>
 
-          {note && (
+          {note && permission === 'WRITE' && (
             <div
               className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-1.5 py-1"
               role="toolbar"
@@ -178,32 +223,35 @@ export default function NotesPage() {
         <section
           aria-label="Note list"
           className={`${
-            selectedNoteId !== null ? 'hidden md:block' : 'block'
+            selected !== null ? 'hidden md:block' : 'block'
           } border-r border-white/8 overflow-y-auto`}
         >
           <NoteListPanel
-            notes={notes}
-            loading={loading}
-            loadingMore={loadingMore}
-            error={error}
-            hasMore={hasMore}
-            selectedId={selectedNoteId}
-            onSelect={setSelectedNoteId}
-            onLoadMore={loadMore}
+            items={visibleItems}
+            filter={filter}
+            onFilterChange={setFilter}
+            loading={listLoading}
+            loadingMore={listLoadingMore}
+            error={listError}
+            hasMore={listHasMore}
+            selected={selected}
+            onSelect={setSelected}
+            onLoadMore={handleLoadMore}
             onDeleteNote={handleDeleteNote}
           />
         </section>
 
         <section
           aria-label="Note details"
-          className={`${selectedNoteId !== null ? 'block' : 'hidden md:block'} overflow-y-auto`}
+          className={`${selected !== null ? 'block' : 'hidden md:block'} overflow-y-auto`}
         >
           <NoteDetailPanel
             note={note}
+            permission={permission}
             loading={noteLoading}
             error={noteError}
-            selectedId={selectedNoteId}
-            onBack={() => setSelectedNoteId(null)}
+            selected={selected}
+            onBack={() => setSelected(null)}
             editor={editor}
             saving={saving}
             saveError={saveError}

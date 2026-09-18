@@ -4,7 +4,8 @@ import { formatDate } from '../../utils/date';
 import { CheckIcon } from '../../components/icons';
 import ShareNoteButton from './ShareNoteButton';
 import SharedUsersButton from './SharedUsersButton';
-import type { NoteDto } from '../../types/notes';
+import type { NoteDto, SelectedNoteRef } from '../../types/notes';
+import type { Permission } from '../../types/shares';
 
 const SAVED_TOAST_DURATION_MS = 2000;
 
@@ -13,9 +14,10 @@ const spinnerClass =
 
 interface NoteDetailPanelProps {
   note: NoteDto | null;
+  permission: Permission | null;
   loading: boolean;
   error: string | null;
-  selectedId: number | null;
+  selected: SelectedNoteRef | null;
   onBack: () => void;
   editor: Editor | null;
   saving: boolean;
@@ -25,9 +27,10 @@ interface NoteDetailPanelProps {
 
 export default function NoteDetailPanel({
   note,
+  permission,
   loading,
   error,
-  selectedId,
+  selected,
   onBack,
   editor,
   saving,
@@ -52,7 +55,7 @@ export default function NoteDetailPanel({
 
   const toast = saving ? 'Saving…' : showSavedToast ? 'Saved' : null;
 
-  if (selectedId === null) {
+  if (selected === null) {
     return (
       <div className="flex flex-col items-center justify-center gap-1.5 h-full py-16 px-6 text-center">
         <p className="text-[#f0eaf8] font-medium m-0">No note selected</p>
@@ -85,6 +88,8 @@ export default function NoteDetailPanel({
 
   if (!note) return null;
 
+  const isOwner = selected.kind === 'own';
+
   return (
     <div className="p-6 animate-[card-in_0.2s_ease]">
       <button
@@ -98,9 +103,10 @@ export default function NoteDetailPanel({
       <p className="text-center text-xs text-[#c8b8e8]/70 mb-4">
         By {note.authorName} · Created {formatDate(note.dateCreated)}
         {lastSavedAt && lastSavedAt !== note.dateCreated && ` · Edited ${formatDate(lastSavedAt)}`}
+        {!isOwner && permission === 'READ' && ' · Read only'}
       </p>
 
-      <SharedUsersButton noteId={note.id} />
+      {isOwner && <SharedUsersButton noteId={note.id} />}
 
       {saveError && (
         <p
@@ -115,7 +121,7 @@ export default function NoteDetailPanel({
         <EditorContent editor={editor} className="tiptap-editor text-[#f0eaf8]/90" />
       </div>
 
-      <ShareNoteButton noteId={note.id} />
+      {isOwner && <ShareNoteButton noteId={note.id} />}
 
       {toast && (
         <div

@@ -1,7 +1,10 @@
 import { request } from './client';
 import type { ApiResponse, ErrorResponse } from '../types/auth';
 import type {
+  EditSharedNoteRequest,
+  GetAllSharedToMeResponse,
   GetSharedUsersResponse,
+  GetSingleSharedNoteResponse,
   ShareNoteRequest,
   UnshareNoteRequest,
   UpdateSharePermissionRequest,
@@ -35,4 +38,37 @@ export function unshareNote(
   token: string,
 ): Promise<ApiResponse | ErrorResponse> {
   return request<ApiResponse | ErrorResponse>('DELETE', '/api/shares/unshare', body, token);
+}
+
+export function getReceivedShares(
+  token: string,
+  page = 0,
+  size = 20,
+): Promise<GetAllSharedToMeResponse | ErrorResponse> {
+  return request<GetAllSharedToMeResponse | ErrorResponse>(
+    'GET',
+    `/api/shares/received?page=${page}&size=${size}`,
+    undefined,
+    token,
+  );
+}
+
+export function getSharedNoteById(
+  id: number,
+  token: string,
+): Promise<GetSingleSharedNoteResponse | ErrorResponse> {
+  return request<GetSingleSharedNoteResponse | ErrorResponse>(
+    'GET',
+    `/api/shares/${id}`,
+    undefined,
+    token,
+  );
+}
+
+export function updateSharedNote(
+  id: number,
+  body: EditSharedNoteRequest,
+  token: string,
+): Promise<ApiResponse | ErrorResponse> {
+  return request<ApiResponse | ErrorResponse>('PATCH', `/api/shares/${id}`, body, token);
 }
