@@ -3,6 +3,7 @@ import type { ApiResponse, ErrorResponse } from '../types/auth';
 import type {
   GetSharedUsersResponse,
   ShareNoteRequest,
+  UnshareNoteRequest,
   UpdateSharePermissionRequest,
 } from '../types/shares';
 
@@ -27,4 +28,11 @@ export function updateSharePermissions(
   token: string,
 ): Promise<ApiResponse | ErrorResponse> {
   return request<ApiResponse | ErrorResponse>('PATCH', '/api/shares/permissions', body, token);
+}
+
+export function unshareNote(
+  body: UnshareNoteRequest,
+  token: string,
+): Promise<ApiResponse | ErrorResponse> {
+  return request<ApiResponse | ErrorResponse>('DELETE', '/api/shares/unshare', body, token);
 }

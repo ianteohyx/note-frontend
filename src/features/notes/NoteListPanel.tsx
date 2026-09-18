@@ -2,25 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import { formatDate } from '../../utils/date';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { TrashIcon } from '../../components/icons';
 import type { NoteDto } from '../../types/notes';
 
 const spinnerClass =
   'inline-block w-5 h-5 border-2 border-[#c8a96e]/30 border-t-[#c8a96e] rounded-full animate-spin shrink-0';
-
-const TrashIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
-    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-  </svg>
-);
 
 interface ContextMenuState {
   note: NoteDto;

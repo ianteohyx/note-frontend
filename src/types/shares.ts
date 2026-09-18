@@ -26,3 +26,12 @@ export interface UpdateSharePermissionItem {
 export interface UpdateSharePermissionRequest {
   updates: UpdateSharePermissionItem[];
 }
+
+export interface UnshareNoteItem {
+  noteId: number;
+  sharedToUsername: string;
+}
+
+export interface UnshareNoteRequest {
+  unshares: UnshareNoteItem[];
+}

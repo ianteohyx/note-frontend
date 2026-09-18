@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useShareNote } from '../../hooks/useShareNote';
-import { CheckIcon, CloseIcon, ShareIcon } from '../../components/icons';
+import { CloseIcon, ShareIcon } from '../../components/icons';
 import type { Permission } from '../../types/shares';
 
 const spinnerClass =
@@ -100,9 +100,6 @@ export default function ShareNoteButton({ noteId }: ShareNoteButtonProps) {
                 className="flex-1 min-w-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#f0eaf8] placeholder:text-[#f0eaf8]/40 outline-none focus:border-[#c8a96e]/60 disabled:opacity-60"
               />
               {sharing && <span className={spinnerClass} aria-hidden="true" />}
-              {!sharing && shareSuccess && (
-                <CheckIcon className="h-5 w-5 shrink-0 text-[#6fcf97]" aria-hidden="true" />
-              )}
             </div>
 
             <select
@@ -126,6 +123,11 @@ export default function ShareNoteButton({ noteId }: ShareNoteButtonProps) {
             {shareError && (
               <p className="m-0 text-xs text-[#e07a7a]" role="alert">
                 {shareError}
+              </p>
+            )}
+            {!shareError && shareSuccess && (
+              <p className="m-0 text-xs text-[#6fcf97]" role="status">
+                Shared successfully!
               </p>
             )}
 
