@@ -1,4 +1,5 @@
 import type { ApiResponse } from './auth';
+import type { NoteDto } from './notes';
 
 export type Permission = 'READ' | 'WRITE';
 
@@ -34,4 +35,27 @@ export interface UnshareNoteItem {
 
 export interface UnshareNoteRequest {
   unshares: UnshareNoteItem[];
+}
+
+export interface SharedNoteDto {
+  id: number;
+  note: NoteDto;
+  permission: Permission;
+}
+
+export interface GetAllSharedToMeResponse extends ApiResponse {
+  sharedNotes: SharedNoteDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface GetSingleSharedNoteResponse extends ApiResponse {
+  sharedNote: SharedNoteDto;
+}
+
+export interface EditSharedNoteRequest {
+  updatedShareNoteTitle: string;
+  updatedShareNoteContent: string;
 }
