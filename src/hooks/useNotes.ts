@@ -14,7 +14,7 @@ interface UseNotesResult {
   error: string | null;
   hasMore: boolean;
   loadMore: () => void;
-  addNote: () => Promise<NoteDto | null>;
+  addNote: () => Promise<{ ok: boolean; note?: NoteDto; error?: string }>;
   creating: boolean;
   createError: string | null;
   deleteNote: (id: number) => Promise<{ ok: boolean; error?: string }>;
@@ -68,32 +68,36 @@ export function useNotes(): UseNotesResult {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const addNote = useCallback(async (): Promise<NoteDto | null> => {
-    if (!token) return null;
+  const addNote = useCallback(async (): Promise<{ ok: boolean; note?: NoteDto; error?: string }> => {
+    if (!token) return { ok: false, error: 'Your session has expired. Please log in again.' };
     setCreating(true);
     setCreateError(null);
 
     try {
       const createRes = await createNote({ noteTitle: NEW_NOTE_TITLE, noteContent: '' }, token);
       if (createRes.responseOutcome !== 'SUCCESS') {
-        setCreateError((createRes as ErrorResponse).message ?? 'Failed to create note.');
-        return null;
+        const message = (createRes as ErrorResponse).message ?? 'Failed to create note.';
+        setCreateError(message);
+        return { ok: false, error: message };
       }
 
       // Create response carries no note data, so fetch the note back — it is
       // guaranteed to sort first since the list is ordered by dateModified desc.
       const listRes = await getAllNotes(token, 0, 1);
       if (listRes.responseOutcome !== 'SUCCESS') {
-        setCreateError((listRes as ErrorResponse).message ?? 'Note created, but failed to load it.');
-        return null;
+        const message = (listRes as ErrorResponse).message ?? 'Note created, but failed to load it.';
+        setCreateError(message);
+        return { ok: false, error: message };
       }
 
       const newNote = (listRes as GetAllNoteResponse).notes[0] ?? null;
-      if (newNote) setNotes(prev => [newNote, ...prev]);
-      return newNote;
+      if (!newNote) return { ok: false, error: 'Note created, but failed to load it.' };
+      setNotes(prev => [newNote, ...prev]);
+      return { ok: true, note: newNote };
     } catch {
-      setCreateError('Network error. Please check your connection and try again.');
-      return null;
+      const message = 'Network error. Please check your connection and try again.';
+      setCreateError(message);
+      return { ok: false, error: message };
     } finally {
       setCreating(false);
     }

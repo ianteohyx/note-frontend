@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NoteListPanel from '../features/notes/NoteListPanel';
 import NoteDetailPanel from '../features/notes/NoteDetailPanel';
@@ -10,27 +11,47 @@ import { useAutosaveNote } from '../hooks/useAutosaveNote';
 import { useAuth } from '../hooks/useAuth';
 import type { NoteFilter, NoteListItem, SelectedNoteRef } from '../types/notes';
 
-const AddNoteIcon = ({ className }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    aria-hidden="true"
-  >
-    <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-    <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
-  </svg>
-);
+const LIST_WIDTH_DEFAULT = 320;
+const LIST_WIDTH_MIN = 240;
+const LIST_WIDTH_MAX = 560;
 
 export default function NotesPage() {
   const { username, logout } = useAuth();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<NoteFilter>('MY');
   const [selected, setSelected] = useState<SelectedNoteRef | null>(null);
+
+  // Resizable note-list panel: dragging the divider between the two panels
+  // adjusts this width (desktop only — the mobile layout stacks the panels
+  // and ignores it, see the `md:` grid-template-columns below).
+  const [listWidth, setListWidth] = useState(LIST_WIDTH_DEFAULT);
+  const resizingRef = useRef(false);
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!resizingRef.current) return;
+      setListWidth(w => Math.min(LIST_WIDTH_MAX, Math.max(LIST_WIDTH_MIN, w + e.movementX)));
+    }
+    function handleMouseUp() {
+      if (!resizingRef.current) return;
+      resizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  function handleResizerMouseDown(e: ReactMouseEvent) {
+    e.preventDefault();
+    resizingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
 
   const {
     notes,
@@ -41,7 +62,6 @@ export default function NotesPage() {
     loadMore,
     addNote,
     creating,
-    createError,
     deleteNote,
     patchNoteInList,
   } = useNotes();
@@ -111,9 +131,10 @@ export default function NotesPage() {
     navigate('/login', { replace: true });
   }
 
-  async function handleCreateNote() {
-    const newNote = await addNote();
-    if (newNote) setSelected({ id: newNote.id, kind: 'own' });
+  async function handleCreateNote(): Promise<{ ok: boolean; error?: string }> {
+    const result = await addNote();
+    if (result.ok && result.note) setSelected({ id: result.note.id, kind: 'own' });
+    return { ok: result.ok, error: result.error };
   }
 
   async function handleDeleteNote(id: number) {
@@ -127,31 +148,11 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#1a1525]">
+    <div className="h-screen flex flex-col overflow-hidden bg-[#1a1525]">
       <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-6 py-4 border-b border-white/8 shrink-0">
         <h1 className="justify-self-start text-xl font-bold text-[#c8a96e] tracking-[0.05em] m-0">I-Note</h1>
 
         <div className="justify-self-center flex items-center gap-2">
-          <div className="rounded-full border border-white/10 bg-white/5 px-1.5 py-1">
-            <button
-              type="button"
-              onClick={handleCreateNote}
-              disabled={creating}
-              aria-label="Add note"
-              title="Add note"
-              className="flex items-center justify-center w-8 h-8 rounded-full text-[#c8a96e] hover:text-[#d9bc82] hover:bg-white/8 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {creating ? (
-                <span
-                  className="inline-block w-4 h-4 border-2 border-[#c8a96e]/30 border-t-[#c8a96e] rounded-full animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <AddNoteIcon className="w-4.5 h-4.5" />
-              )}
-            </button>
-          </div>
-
           {note && permission === 'WRITE' && (
             <div
               className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-1.5 py-1"
@@ -210,21 +211,15 @@ export default function NotesPage() {
         </div>
       </header>
 
-      {createError && (
-        <p
-          className="bg-[#e07a7a]/12 border border-[#e07a7a]/35 rounded-lg mx-6 mt-4 px-4 py-3 text-sm text-[#e07a7a] shrink-0"
-          role="alert"
-        >
-          {createError}
-        </p>
-      )}
-
-      <main className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] overflow-hidden">
+      <main
+        className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[var(--list-width)_auto_1fr] overflow-hidden"
+        style={{ '--list-width': `${listWidth}px` } as CSSProperties}
+      >
         <section
           aria-label="Note list"
           className={`${
             selected !== null ? 'hidden md:block' : 'block'
-          } border-r border-white/8 overflow-y-auto`}
+          } min-h-0 border-r border-white/8 overflow-y-auto`}
         >
           <NoteListPanel
             items={visibleItems}
@@ -238,12 +233,22 @@ export default function NotesPage() {
             onSelect={setSelected}
             onLoadMore={handleLoadMore}
             onDeleteNote={handleDeleteNote}
+            onAddNote={handleCreateNote}
+            creating={creating}
           />
         </section>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize note list panel"
+          onMouseDown={handleResizerMouseDown}
+          className="hidden md:block w-1.5 shrink-0 cursor-col-resize bg-white/5 hover:bg-[#c8a96e]/40 transition-colors"
+        />
+
         <section
           aria-label="Note details"
-          className={`${selected !== null ? 'block' : 'hidden md:block'} overflow-y-auto`}
+          className={`${selected !== null ? 'block' : 'hidden md:block'} min-h-0 overflow-y-auto`}
         >
           <NoteDetailPanel
             note={note}

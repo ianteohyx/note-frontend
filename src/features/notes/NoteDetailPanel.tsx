@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { EditorContent, type Editor } from '@tiptap/react';
 import { formatDate } from '../../utils/date';
 import { CheckIcon } from '../../components/icons';
-import ShareNoteButton from './ShareNoteButton';
 import SharedUsersButton from './SharedUsersButton';
 import type { NoteDto, SelectedNoteRef } from '../../types/notes';
 import type { Permission } from '../../types/shares';
@@ -120,8 +119,6 @@ export default function NoteDetailPanel({
       <div className="max-w-[720px]">
         <EditorContent editor={editor} className="tiptap-editor text-[#f0eaf8]/90" />
       </div>
-
-      {isOwner && <ShareNoteButton noteId={note.id} />}
 
       {toast && (
         <div
