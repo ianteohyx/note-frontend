@@ -92,26 +92,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#1a1525] text-[#f0eaf8]">
-      <header className="flex items-center justify-between px-6 py-6 max-w-5xl mx-auto">
-        <span className="text-lg font-bold text-[#c8a96e] tracking-[0.05em]">I-Note</span>
-        <nav className="flex items-center gap-3" aria-label="Account">
-          <Link
-            to="/login"
-            className="text-sm font-medium text-[#f0eaf8]/70 hover:text-[#f0eaf8] transition-colors"
-          >
-            Sign in
-          </Link>
-          <Link
-            to="/signup"
-            className={`${buttonBase} bg-[#c8a96e] text-[#1a1525] hover:bg-[#d9bc82]`}
-          >
-            Get started
-          </Link>
-        </nav>
-      </header>
-
       <main>
-        <section className="text-center px-6 pt-16 pb-20 max-w-3xl mx-auto animate-[card-in_0.4s_ease]">
+        <section className="text-center px-6 pt-24 pb-20 max-w-3xl mx-auto animate-[card-in_0.4s_ease]">
           <h1 className="text-4xl min-[480px]:text-5xl font-bold text-[#f0eaf8] m-0 mb-5 leading-tight">
             Capture ideas. <span className="text-[#c8a96e]">Collaborate</span> without friction.
           </h1>
