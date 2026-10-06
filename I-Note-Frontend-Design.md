@@ -427,31 +427,3 @@ Honest limitations, in case they come up:
 | **TLS lives outside the container** | Nginx listens on plain HTTP. In prod the refresh cookie is `Secure`, so the app only works behind an HTTPS proxy/load balancer | Standard split (TLS at the edge), but it's a required piece of infra, not optional |
 | **Backend sees `http` behind a TLS proxy** | Spring doesn't read `X-Forwarded-Proto` (no `server.forward-headers-strategy`), so an `https://` Origin never matches and prod calls still go through the CORS check | Works today because prod sets `CORS_ALLOWED_ORIGINS` to the site's origin. Enabling forward headers on the backend would make them truly same-origin |
 | **No image registry / CI yet** | Images are built by hand; `docker-compose.prod.yml` falls back to local tags | Next step: GitHub Actions builds + pushes on merge to `main`, the server pulls |
-
----
-
-## Key Design Decisions — Summary for Interviews
-
-| Decision | What | Why |
-|----------|------|-----|
-| Access token in memory, refresh token in HttpOnly cookie | JWT never in `localStorage`; refresh token invisible to JS | XSS can't exfiltrate a long-lived credential |
-| Silent refresh on mount + `initializing` flag | One `/refresh` on app start; routes wait for it | Reload stays signed in with no redirect flicker |
-| Module-scoped bootstrap promise | Startup refresh memoised across StrictMode double-mount | Two racing refreshes would trip the backend's reuse-detection and log the user out |
-| Layered `page → hook → api → request()` | Components never call `fetch` | One place to change transport; components stay declarative |
-| Explicit `token` argument in api functions | No hidden global auth state in the api layer | Pure, testable; trade-off is threading token everywhere |
-| Title = first line of a single Tiptap doc | Split to `noteTitle`/`noteContent` on save | Seamless writing UX, clean title column for the list |
-| Markdown storage, restricted schema | Only bold/italic/underline/strike | Compact, readable, and can't emit content the app doesn't handle |
-| Debounced autosave with ref-held pending edit, flush on switch | 1s debounce, immediate flush on note change | No request storms, no lost edits |
-| `NoteListItem { id, kind, note }` | Tag every item as own/shared | Different id spaces can't be confused; endpoint routing is one branch |
-| Editor hook lifted into `NotesPage` | Header toolbar and detail panel share one editor | Avoids context/ref plumbing between siblings |
-| Staged share edits + Undo, saved in parallel | Local overrides, two batch requests on Save | Destructive actions are reversible pre-commit; 2 requests, not N+1 |
-| Client gates are UX only | Read-only editor, hidden menus | Backend re-enforces every one; UI is never the security boundary |
-| In-place list patching | Update + re-sort locally after save/create/delete | Matches backend order with zero refetches |
-| `h-screen` + `min-h-0` panels | Root fixed to viewport, panels scroll internally | Prevents the whole page scrolling with one panel |
-| Context only for auth | Everything else is local state or hooks | No Redux for a single global concern |
-| Type errors fail the build | `tsc -b && vite build`, `strict` on | Broken contracts with the API surface at build time |
-| Multi-stage Docker image | Node builds, unprivileged Nginx serves `dist/` only | ~50 MB image with no source or build tools; non-root |
-| Nginx reverse-proxies `/api` | Browser sees one origin for app + API | No CORS preflight, first-party refresh cookie |
-| Backend address is runtime config | `VITE_API_BASE_URL` empty; Nginx's `BACKEND_URL` filled in at container start | Build once, deploy the same image everywhere |
-| Lazy upstream DNS + `Host $http_host` | `resolver` + variable `proxy_pass`; port kept in `Host` | Nginx boots without the backend; Spring treats proxied calls as same-origin on any port |
-| Hashed assets `immutable`, `index.html` `no-cache` | Long-lived caching for content-hashed files only | Fast repeat loads, and new deploys are picked up on the next page load |
