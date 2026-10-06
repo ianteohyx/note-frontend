@@ -1,0 +1,22 @@
+# Keep the build context small and never bake local config into the image
+node_modules
+dist
+dist-ssr
+.git
+.gitignore
+.claude
+.playwright-mcp
+.mcp.json
+.vscode
+.idea
+.DS_Store
+Icon*
+*.log
+
+# .env.local points VITE_API_BASE_URL at localhost:8080 — if it leaked into the
+# build, the production bundle would call the dev backend instead of /api.
+.env*
+
+Dockerfile
+.dockerignore
+*.md
