@@ -261,9 +261,21 @@ All responses include a `responseOutcome` field. Success responses carry data fi
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VITE_API_BASE_URL` | Yes | Backend base URL e.g. `http://localhost:8080` |
+| `VITE_API_BASE_URL` | Dev only | Backend base URL e.g. `http://localhost:8080`. Leave **empty** for the Docker build — `client.ts` falls back to `''`, so the bundle calls relative `/api/...` and Nginx proxies it |
+| `BACKEND_URL` | Docker runtime | Upstream for Nginx's `/api/` proxy (default `http://app:8080` = backend compose service). Rendered into `nginx/default.conf.template` by the image entrypoint at container start |
 
-Set in `.env.local` for development (gitignored). Set as build-time env vars for production.
+Set `VITE_API_BASE_URL` in `.env.local` for development (gitignored). `.dockerignore` excludes `.env*` so it never leaks into the image.
+
+---
+
+## Deployment (Docker)
+
+- `Dockerfile` — multi-stage: `node:20-alpine` runs `npm ci` + `npm run build`; `nginxinc/nginx-unprivileged` serves `dist/` as non-root on port **8080**. `HEALTHCHECK` hits `/healthz`.
+- `nginx/default.conf.template` — SPA fallback (`try_files … /index.html`), `/assets/` cached `immutable` 1y, `index.html` `no-cache`, gzip, security headers, and the `/api/` reverse proxy to `${BACKEND_URL}` (forwards `X-Forwarded-For` for the backend's rate limiter).
+- The proxy resolves the backend lazily (`resolver ${NGINX_LOCAL_RESOLVERS}` + `set $backend …; proxy_pass $backend;`, enabled by `NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1`). Don't switch back to a literal `proxy_pass http://app:8080` — nginx then exits on startup whenever the backend host doesn't resolve.
+- The proxy sends `Host $http_host` (keeps the port), not `Host $host`. With `$host`, a non-80 port like `localhost:3000` makes Spring see `Origin: http://localhost:3000` vs `Host: localhost`, treat the call as cross-origin, and reject it with 403 `Invalid CORS request` (the dev CORS allow-list only has `:5173`).
+- Nginx `add_header` isn't inherited into a `location` that sets its own `add_header`, which is why the security headers are repeated in `/assets/` and `/`. Keep them in sync.
+- No CSP header yet — Tiptap/ProseMirror would need testing against one before adding it.
 
 ---
 

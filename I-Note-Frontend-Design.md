@@ -156,7 +156,10 @@ The refresh cookie is the only credential that rides along automatically. Mitiga
 
 ### CORS
 
-`request()` sends `credentials: 'include'` on every call so the refresh cookie is sent cross-origin. That only works because the backend lists the exact frontend origin in `cors.allowed-origins` (`http://localhost:5173` in dev, `${CORS_ALLOWED_ORIGINS}` in prod). There's no wildcard and no proxy hack.
+How CORS applies depends on how the frontend is served:
+
+- **Vite dev server (`localhost:5173` → `localhost:8080`):** cross-origin. `request()` sends `credentials: 'include'` on every call so the refresh cookie rides along, which only works because the backend lists the exact frontend origin in `cors.allowed-origins` (`http://localhost:5173` in dev). No wildcard.
+- **Docker image (Nginx):** same-origin. Nginx serves the bundle *and* reverse-proxies `/api`, so the browser only ever talks to one origin and there's no preflight (see Docker image below). `credentials: 'include'` is harmless here. The backend still has its allow-list (`${CORS_ALLOWED_ORIGINS}` in prod) as a second line of defence.
 
 ### Client checks are UX, not security
 
@@ -362,10 +365,11 @@ Every async action shows a loading indicator, every list has an empty state, and
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VITE_API_BASE_URL` | Yes | Backend base URL, e.g. `http://localhost:8080` |
+| `VITE_API_BASE_URL` | Dev only | Backend base URL, e.g. `http://localhost:8080`. Leave empty in the Docker build so the bundle calls relative `/api/...` URLs |
+| `BACKEND_URL` | Docker runtime | Upstream Nginx proxies `/api/` to (default `http://app:8080`, the backend's compose service). Read at container start, not build time |
 
-- Dev: set in `.env.local` (gitignored)
-- Prod: set as a build-time variable — `VITE_*` values are compiled into the bundle, so they must be public information
+- Dev: set `VITE_API_BASE_URL` in `.env.local` (gitignored)
+- Prod: `VITE_*` values are compiled into the bundle (so they must be public information). The Docker image leaves it empty on purpose; `.dockerignore` excludes `.env*` so a local `.env.local` can't leak `localhost:8080` into the image
 
 ### Build & hosting
 
@@ -373,6 +377,36 @@ Every async action shows a loading indicator, every list has an empty state, and
 - Output is a static bundle in `dist/`, deployable to any static host
 - `BrowserRouter` uses real paths, so the host needs an `index.html` fallback or a refresh on `/notes` will 404
 - In production the backend must allow the frontend origin via `CORS_ALLOWED_ORIGINS`, and (for a cross-site frontend) send the refresh cookie as `Secure; SameSite=None`
+
+### Docker image
+
+The frontend ships as a container, built by a multi-stage `Dockerfile`:
+
+1. **Build stage** (`node:20-alpine`) — `npm ci` in its own layer (cached until the lockfile changes), then `npm run build`
+2. **Serve stage** (`nginxinc/nginx-unprivileged`) — only `dist/` is copied over; no Node, no source, no `node_modules`. Runs as non-root on port 8080
+
+`nginx/default.conf.template` is rendered by the image's entrypoint (`envsubst`) at container start:
+
+- **Reverse proxy `/api/` → `${BACKEND_URL}`.** Frontend and API share one origin, so there's no CORS preflight, and the refresh cookie is first-party (works with `SameSite=Lax`/`Strict`). One image runs in any environment — the backend address is runtime config, not baked into the JS. Forwards `X-Forwarded-For`, which the backend's rate limiter reads
+- **`Host` keeps the port.** The proxy forwards `Host: $http_host` (e.g. `localhost:3000`), not `$host` (which drops the port). Spring compares the request's host:port to the browser's `Origin`; if they differ it runs its CORS check, and the dev allow-list only has `:5173`, so every API call through a container on port 3000 failed with 403 `Invalid CORS request`. Port 80 hides the bug because it's the default
+- **Lazy DNS for the upstream.** `proxy_pass` uses a variable plus `resolver` (the container's own DNS, via `NGINX_ENTRYPOINT_LOCAL_RESOLVERS`), so Nginx boots even when the backend is down (API calls 502 until it's up) and follows the backend if its container IP changes. A plain `proxy_pass http://app:8080` makes Nginx exit at startup if `app` doesn't resolve
+- **SPA fallback** — `try_files $uri $uri/ /index.html` so `/notes` survives a refresh
+- **Caching** — `/assets/*` (content-hashed by Vite) is `immutable` for a year; `index.html` is `no-cache` so a new deploy is picked up on the next load. Plus gzip, `server_tokens off`, and `nosniff` / `X-Frame-Options: DENY` / `Referrer-Policy` headers
+
+A `/healthz` endpoint backs the image's `HEALTHCHECK`.
+
+#### Why these choices
+
+- **Nginx, not `vite preview` or Spring Boot's `static/`.** `vite preview` is a dev tool, not built for real traffic. Serving the bundle from the Spring Boot JAR would tie frontend releases to backend releases. Nginx is a C program built for exactly this (static files + proxying), and the final image is ~50 MB
+- **Multi-stage build.** The Node toolchain (~hundreds of MB, plus `node_modules`) is needed only to *produce* `dist/`. Shipping only `dist/` makes the image small, and leaves no source or build tools to attack
+- **Backend address as runtime config.** `VITE_API_BASE_URL` is compiled into the JS, so per-environment values there would mean one image per environment. Leaving it empty (relative `/api/...` URLs) and moving the address into Nginx's `BACKEND_URL` gives **one image for every environment** — the "build once, deploy many" rule
+- **Unprivileged Nginx base image.** Runs as a non-root user on port 8080, matching the backend image's non-root `spring` user. A compromised process inside the container doesn't have root
+- **Health check covers only this container.** `/healthz` is answered by Nginx itself and never touches the backend. A backend outage shows as `/api` 502s, not as the frontend being "unhealthy". Start ordering is the compose file's job (`depends_on`), not the health check's
+
+#### How it runs
+
+- **Dev:** optional. `npm run dev` is the normal loop; `docker run -p 3000:8080 -e BACKEND_URL=http://host.docker.internal:8080 inote-frontend` runs the production image against the backend on the host
+- **Production:** the `web` service in the backend repo's `docker-compose.prod.yml`, as a pre-built image (no `build:`, no source on the server). It shares a compose network with `app`, so the default `BACKEND_URL=http://app:8080` needs no override. It waits for `app` to be healthy (`depends_on: condition: service_healthy`) and publishes port 80. TLS is expected to be terminated in front of it
 
 ---
 
@@ -389,26 +423,7 @@ Honest limitations, in case they come up:
 | **Desktop-only context menu** | Share/Delete is right-click; no long-press for touch | |
 | **No automated tests** | Behaviour verified manually | Hooks are the natural first unit-test target |
 | **Unverified JWT decode** | Username shown could be wrong if a token were forged | Display-only by design; server is authoritative |
-
----
-
-## Key Design Decisions — Summary for Interviews
-
-| Decision | What | Why |
-|----------|------|-----|
-| Access token in memory, refresh token in HttpOnly cookie | JWT never in `localStorage`; refresh token invisible to JS | XSS can't exfiltrate a long-lived credential |
-| Silent refresh on mount + `initializing` flag | One `/refresh` on app start; routes wait for it | Reload stays signed in with no redirect flicker |
-| Module-scoped bootstrap promise | Startup refresh memoised across StrictMode double-mount | Two racing refreshes would trip the backend's reuse-detection and log the user out |
-| Layered `page → hook → api → request()` | Components never call `fetch` | One place to change transport; components stay declarative |
-| Explicit `token` argument in api functions | No hidden global auth state in the api layer | Pure, testable; trade-off is threading token everywhere |
-| Title = first line of a single Tiptap doc | Split to `noteTitle`/`noteContent` on save | Seamless writing UX, clean title column for the list |
-| Markdown storage, restricted schema | Only bold/italic/underline/strike | Compact, readable, and can't emit content the app doesn't handle |
-| Debounced autosave with ref-held pending edit, flush on switch | 1s debounce, immediate flush on note change | No request storms, no lost edits |
-| `NoteListItem { id, kind, note }` | Tag every item as own/shared | Different id spaces can't be confused; endpoint routing is one branch |
-| Editor hook lifted into `NotesPage` | Header toolbar and detail panel share one editor | Avoids context/ref plumbing between siblings |
-| Staged share edits + Undo, saved in parallel | Local overrides, two batch requests on Save | Destructive actions are reversible pre-commit; 2 requests, not N+1 |
-| Client gates are UX only | Read-only editor, hidden menus | Backend re-enforces every one; UI is never the security boundary |
-| In-place list patching | Update + re-sort locally after save/create/delete | Matches backend order with zero refetches |
-| `h-screen` + `min-h-0` panels | Root fixed to viewport, panels scroll internally | Prevents the whole page scrolling with one panel |
-| Context only for auth | Everything else is local state or hooks | No Redux for a single global concern |
-| Type errors fail the build | `tsc -b && vite build`, `strict` on | Broken contracts with the API surface at build time |
+| **No Content-Security-Policy header** | Nginx sets `nosniff`/`X-Frame-Options`/`Referrer-Policy`, but no CSP, the strongest browser-side XSS mitigation | Needs testing against Tiptap/ProseMirror's inline styles before turning on |
+| **TLS lives outside the container** | Nginx listens on plain HTTP. In prod the refresh cookie is `Secure`, so the app only works behind an HTTPS proxy/load balancer | Standard split (TLS at the edge), but it's a required piece of infra, not optional |
+| **Backend sees `http` behind a TLS proxy** | Spring doesn't read `X-Forwarded-Proto` (no `server.forward-headers-strategy`), so an `https://` Origin never matches and prod calls still go through the CORS check | Works today because prod sets `CORS_ALLOWED_ORIGINS` to the site's origin. Enabling forward headers on the backend would make them truly same-origin |
+| **No image registry / CI yet** | Images are built by hand; `docker-compose.prod.yml` falls back to local tags | Next step: GitHub Actions builds + pushes on merge to `main`, the server pulls |
