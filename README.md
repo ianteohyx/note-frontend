@@ -83,14 +83,15 @@ There is no automated test suite yet.
 
 ## Production
 
-The frontend runs as the `web` service in the backend's `docker-compose.prod.yml`, as a pre-built image. It needs no configuration there: `BACKEND_URL` defaults to `http://app:8080`, the backend's service name on the shared compose network.
+Hosted as a static site on S3 + CloudFront. CloudFront serves `dist/` from S3 and routes `/api/*` to the backend ALB, so the browser only talks to one origin.
 
-| Variable | Set at | Description |
-|----------|--------|-------------|
-| `BACKEND_URL` | `docker run -e` / compose | Where Nginx forwards `/api/*`. Default `http://app:8080`, no trailing slash |
-| `VITE_API_BASE_URL` | `docker build --build-arg` | Leave unset: the app then calls relative `/api/...` URLs that Nginx forwards. Only set it if the API is on a different origin |
+```bash
+npm run build
+aws s3 sync dist/ s3://<bucket> --delete
+aws cloudfront create-invalidation --distribution-id <id> --paths "/index.html"
+```
 
-The container listens on port 8080, and `GET /healthz` is its health check.
+`npm run build` loads `.env.production`, which sets `VITE_API_BASE_URL` empty (overriding `.env.local`), so the bundle calls relative `/api/...` URLs.
 
 ## More
 

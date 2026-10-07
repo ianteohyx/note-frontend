@@ -261,14 +261,18 @@ All responses include a `responseOutcome` field. Success responses carry data fi
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VITE_API_BASE_URL` | Dev only | Backend base URL e.g. `http://localhost:8080`. Leave **empty** for the Docker build — `client.ts` falls back to `''`, so the bundle calls relative `/api/...` and Nginx proxies it |
+| `VITE_API_BASE_URL` | Dev only | Backend base URL e.g. `http://localhost:8080`. **Empty** in production builds — `.env.production` (committed) sets it to `''`, overriding `.env.local`, so the bundle calls relative `/api/...`, which CloudFront routes to the backend ALB |
 | `BACKEND_URL` | Docker runtime | Upstream for Nginx's `/api/` proxy (default `http://app:8080` = backend compose service). Rendered into `nginx/default.conf.template` by the image entrypoint at container start |
 
 Set `VITE_API_BASE_URL` in `.env.local` for development (gitignored). `.dockerignore` excludes `.env*` so it never leaks into the image.
 
 ---
 
-## Deployment (Docker)
+## Deployment
+
+**Production:** static `dist/` on S3 + CloudFront. CloudFront's `/api/*` behavior routes to the backend ALB (same origin → no CORS, refresh cookie `SameSite=Lax`). Deploy: `npm run build` → `aws s3 sync dist/ s3://<bucket> --delete` → invalidate `/index.html`.
+
+**Docker (local only, not used in production):**
 
 - `Dockerfile` — multi-stage: `node:20-alpine` runs `npm ci` + `npm run build`; `nginxinc/nginx-unprivileged` serves `dist/` as non-root on port **8080**. `HEALTHCHECK` hits `/healthz`.
 - `nginx/default.conf.template` — SPA fallback (`try_files … /index.html`), `/assets/` cached `immutable` 1y, `index.html` `no-cache`, gzip, security headers, and the `/api/` reverse proxy to `${BACKEND_URL}` (forwards `X-Forwarded-For` for the backend's rate limiter).
