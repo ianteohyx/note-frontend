@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { formatDate } from '../../utils/date';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ShareNoteDialog from './ShareNoteDialog';
-import { ShareIcon, TrashIcon } from '../../components/icons';
+import { MoreIcon, ShareIcon, TrashIcon } from '../../components/icons';
 import type { NoteFilter, NoteListItem, SelectedNoteRef } from '../../types/notes';
 
 const spinnerClass =
@@ -68,18 +68,22 @@ export default function NoteListPanel({
     function close() {
       setMenu(null);
     }
-    function handlePointerDown(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) close();
+    // pointerdown covers mouse, touch and pen (mousedown alone doesn't fire reliably on touch).
+    function handlePointerDown(e: PointerEvent) {
+      const target = e.target as Element;
+      // Let the "more" button toggle the menu itself instead of closing then reopening it.
+      if (target.closest('[data-note-menu-trigger]')) return;
+      if (menuRef.current && !menuRef.current.contains(target)) close();
     }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') close();
     }
-    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', close);
     window.addEventListener('scroll', close, true);
     return () => {
-      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', close);
       window.removeEventListener('scroll', close, true);
@@ -91,6 +95,16 @@ export default function NoteListPanel({
     if (item.kind !== 'own') return;
     e.preventDefault();
     setMenu({ item, x: e.clientX, y: e.clientY });
+  }
+
+  // Tap/click equivalent of right-click, for touch screens that have no context menu gesture.
+  function handleMoreClick(e: ReactMouseEvent<HTMLButtonElement>, item: NoteListItem) {
+    if (menu?.item.id === item.id) {
+      setMenu(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenu({ item, x: Math.max(8, rect.right - 176), y: rect.bottom + 4 });
   }
 
   async function handleConfirmDelete() {
@@ -273,13 +287,15 @@ export default function NoteListPanel({
           {items.map(item => {
             const isSelected = item.kind === selected?.kind && item.id === selected?.id;
             return (
-              <li key={`${item.kind}-${item.id}`}>
+              <li key={`${item.kind}-${item.id}`} className="relative">
                 <button
                   type="button"
                   onClick={() => onSelect({ id: item.id, kind: item.kind })}
                   onContextMenu={e => handleContextMenu(e, item)}
                   aria-current={isSelected}
-                  className={`w-full text-left rounded-lg px-4 py-3 transition-colors duration-150 border cursor-pointer ${
+                  className={`w-full text-left rounded-lg py-3 pl-4 transition-colors duration-150 border cursor-pointer ${
+                    item.kind === 'own' ? 'pr-12' : 'pr-4'
+                  } ${
                     isSelected
                       ? 'bg-[#c8a96e]/12 border-[#c8a96e]/50'
                       : 'bg-transparent border-transparent hover:bg-white/5'
@@ -296,6 +312,19 @@ export default function NoteListPanel({
                     {formatDate(item.note.dateModified)}
                   </p>
                 </button>
+                {item.kind === 'own' && (
+                  <button
+                    type="button"
+                    data-note-menu-trigger
+                    onClick={e => handleMoreClick(e, item)}
+                    aria-label={`Actions for ${item.note.title || 'Untitled'}`}
+                    aria-haspopup="menu"
+                    aria-expanded={menu?.item.id === item.id}
+                    className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-[#c8b8e8]/70 transition-colors hover:bg-white/8 hover:text-[#c8b8e8] cursor-pointer"
+                  >
+                    <MoreIcon className="h-5 w-5" />
+                  </button>
+                )}
               </li>
             );
           })}
