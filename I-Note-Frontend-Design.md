@@ -285,7 +285,7 @@ A `NoteFilter` (`'MY' | 'SHARED' | 'ALL'`) lives in `NotesPage`, defaulting to `
 
 ### Sharing UI
 
-- **Right-click** a note → context menu with "Share note" / "Delete note" (owner-only; no-ops for shared notes)
+- **Right-click** a note (desktop) or tap its **"⋯" button** (touch) → menu with "Share note" / "Delete note" (owner-only; shared notes have neither)
 - **`ShareNoteDialog`** — username + permission, sets permission at creation time
 - **`SharedUsersButton`** — popover listing who a note is shared with, refetched fresh each time it opens (no cache to invalidate)
 
@@ -420,7 +420,7 @@ Honest limitations, in case they come up:
 | **Last-write-wins autosave** | Two people editing the same note can overwrite each other; no conflict detection or live collaboration | Would need versioning/ETag or CRDT/OT |
 | **`ALL` filter ordering** | Cross-source order is only as correct as the pages loaded so far | Consequence of merging two independently paginated lists client-side |
 | **Partial failure on Save** | If permissions save but unshare fails (or vice versa), state is left as-is for retry, not rolled back | Two endpoints, two transactions |
-| **Desktop-only context menu** | Share/Delete is right-click; no long-press for touch | |
+| **No long-press gesture** | Share/Delete opens from right-click or the visible "⋯" button; there is no long-press handler | The "⋯" button covers touch screens (iOS Safari doesn't fire `contextmenu` on long-press) |
 | **No automated tests** | Behaviour verified manually | Hooks are the natural first unit-test target |
 | **Unverified JWT decode** | Username shown could be wrong if a token were forged | Display-only by design; server is authoritative |
 | **No Content-Security-Policy header** | Nginx sets `nosniff`/`X-Frame-Options`/`Referrer-Policy`, but no CSP, the strongest browser-side XSS mitigation | Needs testing against Tiptap/ProseMirror's inline styles before turning on |
